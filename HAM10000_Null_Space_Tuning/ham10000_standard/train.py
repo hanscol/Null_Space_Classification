@@ -17,7 +17,7 @@ def train_model(null_split):
     test_data = train_files('/home/hansencb/SkinLesions/Validate')
 
     train_dataset = Train_Dataset(train_data, null_split=null_split)
-    test_dataset = Train_Dataset(test_data)
+    test_dataset = Test_Dataset(test_data)
 
 
     batch_size = 1
@@ -59,7 +59,7 @@ def train_model(null_split):
             file.write(str(accuracy))
             file.write('\n')
 
-        loss, accuracy = test(model, device, test_loader)
+        loss, accuracy, confusion, correct_data, incorrect_data = test(model, device, test_loader)
 
         with open(validate_loss_file, "a") as file:
             file.write(str(loss))
