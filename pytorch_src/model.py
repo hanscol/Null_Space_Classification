@@ -1,36 +1,31 @@
 import torch.nn as nn
-import torch.nn.functional as F
 
-class AllConvNet(nn.Module):
-    def __init__(self, input_size, n_classes=10, **kwargs):
-        super(AllConvNet, self).__init__()
-        self.conv1 = nn.Conv2d(input_size, 96, 3, padding=1)
-        self.conv2 = nn.Conv2d(96, 96, 3, padding=1)
-        self.conv3 = nn.Conv2d(96, 96, 3, padding=1, stride=2)
-        self.conv4 = nn.Conv2d(96, 192, 3, padding=1)
-        self.conv5 = nn.Conv2d(192, 192, 3, padding=1)
-        self.conv6 = nn.Conv2d(192, 192, 3, padding=1, stride=2)
-        self.conv7 = nn.Conv2d(192, 192, 3, padding=1)
-        self.conv8 = nn.Conv2d(192, 192, 1)
+class CNN(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(CNN, self).__init__()
 
-        self.class_conv = nn.Conv2d(192, n_classes, 1)
+        self.relu = nn.ReLU()
+        self.conv1 = nn.Conv2d(in_channels, 32, 3)
+        self.conv2 = nn.Conv2d(32, 64, 3)
 
+        self.pool = nn.MaxPool2d(2)
+        self.drop1 = nn.Dropout2d(p=0.25)
+
+        self.fc1 = nn.Linear(9216, 128)
+        self.drop2 = nn.Dropout2d(p=0.5)
+        self.fc2 = nn.Linear(128, out_channels)
+        self.soft = nn.Softmax()
 
     def forward(self, x):
-        x_drop = F.dropout(x, .2)
-        conv1_out = F.relu(self.conv1(x_drop))
-        conv2_out = F.relu(self.conv2(conv1_out))
-        conv3_out = F.relu(self.conv3(conv2_out))
-        conv3_out_drop = F.dropout(conv3_out, .5)
-        conv4_out = F.relu(self.conv4(conv3_out_drop))
-        conv5_out = F.relu(self.conv5(conv4_out))
-        conv6_out = F.relu(self.conv6(conv5_out))
-        conv6_out_drop = F.dropout(conv6_out, .5)
-        conv7_out = F.relu(self.conv7(conv6_out_drop))
-        conv8_out = F.relu(self.conv8(conv7_out))
 
-        class_out = F.relu(self.class_conv(conv8_out))
-        pool_out = F.adaptive_avg_pool2d(class_out, 1)
-        pool_out.squeeze_(-1)
-        pool_out.squeeze_(-1)
-        return pool_out
+        x = self.conv1(x)
+        x = self.conv2(self.relu(x))
+        x = self.drop1(self.pool(self.relu(x)))
+
+        x = x.view(x.shape[0], x.shape[1]*x.shape[2]*x.shape[3])
+
+        x = self.drop2(self.relu(self.fc1(x)))
+        x = self.fc2(x)
+        x = self.soft(x)
+
+        return x

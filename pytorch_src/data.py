@@ -12,11 +12,11 @@ warnings.filterwarnings("ignore")
 
 
 class Train_Dataset(Dataset):
-    def __init(self, data, config):
+    def __init__(self, data, config):
         self.data = data
         self.keys = list(data.keys())
         self.config = config
-        self.null_split = config.null_split
+        self.null_split = int(config.null_split*len(self.keys))
         self.norm = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         self.tensor = transforms.ToTensor()
         self.transforms = transforms.Compose([
@@ -51,8 +51,16 @@ class Train_Dataset(Dataset):
                 self.class_to_files[i] = keys[class_split:]
 
         self.len = 0
-        for i in range(len(self.class_to_files)):
-            self.len += len(self.class_to_files[i])
+        if config.dataset == 'HAM10000':
+            for i in range(len(self.class_to_files)):
+                self.len = max(self.len, len(self.class_to_files[i]))
+            self.len *= i
+        else:
+            for i in range(len(self.class_to_files)):
+                self.len += len(self.class_to_files[i])
+
+        if config.dataset == 'MNIST':
+            self.len = max(self.len, self.null_split)
 
     def __len__(self):
         return self.len
@@ -72,7 +80,7 @@ class Train_Dataset(Dataset):
             img = transform.resize(img, [224, 224, 3], mode='constant', anti_aliasing=True)
 
             img = self.tensor(img)
-            img = self.norm(img)
+            img = self.norm(img.float())
             img = img.type(torch.float32)
 
         if self.config.dataset == 'HAM10000':
@@ -84,7 +92,7 @@ class Train_Dataset(Dataset):
             img = img / 255.0
             img = transform.resize(img, [224, 224, 3], mode='constant', anti_aliasing=True)
             img = self.tensor(img)
-            img = self.norm(img)
+            img = self.norm(img.float())
             img = img.type(torch.float32)
 
         return img
@@ -116,11 +124,12 @@ class Train_Dataset(Dataset):
 
 
 class Test_Dataset(Dataset):
-    def __init__(self, data):
+    def __init__(self, data, config):
         self.data = data
         self.keys = list(data.keys())
         self.norm = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         self.tensor = transforms.ToTensor()
+        self.config = config
 
     def __len__(self):
         return len(self.keys)
@@ -137,7 +146,7 @@ class Test_Dataset(Dataset):
         if self.config.dataset == 'CIFAR-10' or self.config.dataset == 'HAM10000':
             img = transform.resize(img, [224, 224, 3], mode='constant', anti_aliasing=True)
             img = self.tensor(img)
-            img = self.norm(img)
+            img = self.norm(img.float())
 
         img = img.type(torch.float32)
         return img

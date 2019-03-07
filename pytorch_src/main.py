@@ -4,9 +4,54 @@ from torch.utils.data import DataLoader
 from torchvision import models
 from data import *
 from utils import *
+from model import *
 import random
 import argparse
 import os
+
+def test_model(config):
+    use_cuda = torch.cuda.is_available()
+    torch.manual_seed(1)
+    device = torch.device("cuda" if use_cuda else "cpu")
+    kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
+
+    data = {}
+    with open(config.file, 'r') as f:
+        for l in f.readlines():
+            l = l.split(' ')
+            data[l[0]] = int(l[1])
+
+    test_dataset = Test_Dataset(data, config)
+
+    test_loader = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False, **kwargs)
+
+    if config.dataset == 'MNIST':
+        model = CNN(1, 10)
+    if config.dataset == 'CIFAR-10':
+        model = models.densenet121(pretrained=True)
+        ft = model.classifier.in_features
+        model.classifier = torch.nn.Linear(ft, 10)
+    if config.dataset == 'HAM10000':
+        model = models.densenet169(pretrained=True)
+        ft = model.classifier.in_features
+        model.classifier = torch.nn.Linear(ft, 7)
+
+    model_file = '{}/models/saved_model_split_{}'.format(config.out_dir, config.null_split)
+    model.load_state_dict(torch.load(model_file))
+    model = model.to(device)
+
+    loss, accuracy, conf_matrix, correct, incorrect = test(model, device, test_loader)
+
+    correct_file = '{}/correct_lists/list_correct_model_split_{}'.format(config.out_dir, config.null_split)
+    with open(correct_file, 'w') as f:
+        for i in correct:
+            line = '{} {} {}\n'.format(i[0], str(i[1]), str(i[2]))
+            f.write(line)
+        for i in incorrect:
+            line = '{} {} {}\n'.format(i[0], str(i[1]), str(i[2]))
+            f.write(line)
+
+    return accuracy
 
 def train_model(config):
     use_cuda = torch.cuda.is_available()
@@ -22,12 +67,13 @@ def train_model(config):
 
 
     keys = list(data.keys())
-    val_split = (len(keys)*(1-config.null_split))*config.val_split
+    val_split = int((len(keys)*(1-config.null_split))*config.val_split)
     val_data = {}
     for i in range(val_split):
         idx = random.randint(0,len(keys)-1)
         val_data[keys[idx]] = data[keys[idx]]
         del data[keys[idx]]
+        del keys[idx]
 
     train_dataset = Train_Dataset(data, config)
     test_dataset = Test_Dataset(val_data, config)
@@ -73,7 +119,7 @@ def train_model(config):
 
     for epoch in range(1, 11):
         print('\nEpoch %d: ' % epoch)
-        loss, accuracy = train(model, device, train_loader, optimizer)
+        loss, accuracy = train(model, device, train_loader, optimizer, config)
 
         with open(train_loss_file, "a") as file:
             file.write(str(loss))
@@ -130,9 +176,19 @@ def main():
 
     config = parser.parse_args()
 
+    if not os.path.isdir(config.out_dir):
+        os.mkdir(config.out_dir)
+    if not os.path.isdir(os.path.join(config.out_dir,'models')):
+        os.mkdir(os.path.join(config.out_dir, 'models'))
+    if not os.path.isdir(os.path.join(config.out_dir, 'results')):
+        os.mkdir(os.path.join(config.out_dir, 'results'))
+    if not os.path.isdir(os.path.join(config.out_dir, 'correct_lists')):
+        os.mkdir(os.path.join(config.out_dir, 'correct_lists'))
+
     if config.mode == 'train':
         train_model(config)
     elif config.mode == 'test':
+        test_model(config)
 
 if __name__ == '__main__':
     main()
