@@ -27,7 +27,7 @@ def test_model(config):
 
     if config.dataset == 'MNIST':
         model = CNN(1, 10)
-    if config.dataset == 'CIFAR-10':
+    if config.dataset == 'CIFAR10':
         model = models.densenet121(pretrained=True)
         ft = model.classifier.in_features
         model.classifier = torch.nn.Linear(ft, 10)
@@ -85,7 +85,7 @@ def train_model(config):
 
     if config.dataset == 'MNIST':
         model = CNN(1, 10)
-    if config.dataset == 'CIFAR-10':
+    if config.dataset == 'CIFAR10':
         model = models.densenet121(pretrained=True)
         ft = model.classifier.in_features
         model.classifier = torch.nn.Linear(ft, 10)
@@ -113,49 +113,62 @@ def train_model(config):
     f.close()
 
     model_file = '{}/models/saved_model_split_{}'.format(config.out_dir, config.null_split)
+
+    if config.continue_training:
+        model.load_state_dict(torch.load(model_file))
+        model = model.to(device)
+
     seq_increase = 0
     min_loss = 10000
     last_loss = 10000
 
-    for epoch in range(1, 11):
-        print('\nEpoch %d: ' % epoch)
-        loss, accuracy = train(model, device, train_loader, optimizer, config)
+    bootstraps = 0
+    if config.bootstrap:
+        bootstraps = 1
 
-        with open(train_loss_file, "a") as file:
-            file.write(str(loss))
-            file.write('\n')
-        with open(train_accuracy_file, "a") as file:
-            file.write(str(accuracy))
-            file.write('\n')
+    for bootstrap in range(bootstraps+1):
+        for epoch in range(1, config.total_epochs+1):
+            print('\nEpoch %d: ' % epoch)
+            loss, accuracy = train(model, device, train_loader, optimizer, config)
 
-        loss, accuracy, confusion, correct_data, incorrect_data = test(model, device, test_loader)
+            with open(train_loss_file, "a") as file:
+                file.write(str(loss))
+                file.write('\n')
+            with open(train_accuracy_file, "a") as file:
+                file.write(str(accuracy))
+                file.write('\n')
 
-        with open(validate_loss_file, "a") as file:
-            file.write(str(loss))
-            file.write('\n')
-        with open(validate_accuracy_file, "a") as file:
-            file.write(str(accuracy))
-            file.write('\n')
+            loss, accuracy, confusion, correct_data, incorrect_data = test(model, device, test_loader)
 
-        if loss < min_loss:
-            min_loss = loss
-            with open(model_file, 'wb') as f:
-                torch.save(model.state_dict(), f)
+            with open(validate_loss_file, "a") as file:
+                file.write(str(loss))
+                file.write('\n')
+            with open(validate_accuracy_file, "a") as file:
+                file.write(str(accuracy))
+                file.write('\n')
 
-        if config.early_stop != -1:
-            if loss > last_loss:
-                seq_increase += 1
-                if seq_increase == config.early_stop:
-                    break
-            else:
-                seq_increase = 0
-            last_loss = loss
+            if loss < min_loss:
+                min_loss = loss
+                with open(model_file, 'wb') as f:
+                    torch.save(model.state_dict(), f)
 
-        if config.decay_epoch != -1:
-            if epoch % config.decay_epoch == 0:
-                config.lr = config.lr * config.decay_rate
-                for param_group in optimizer.param_groups:
-                    param_group['lr'] = config.lr
+            if config.early_stop != -1:
+                if loss > last_loss:
+                    seq_increase += 1
+                    if seq_increase == config.early_stop:
+                        break
+                else:
+                    seq_increase = 0
+                last_loss = loss
+
+            if config.decay_epoch != -1:
+                if epoch % config.decay_epoch == 0:
+                    config.lr = config.lr * config.decay_rate
+                    for param_group in optimizer.param_groups:
+                        param_group['lr'] = config.lr
+        if config.bootstrap:
+            train_dataset.bootstrap(model, device)
+            train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, **kwargs)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -173,6 +186,8 @@ def main():
     parser.add_argument('--early_stop', type=int, default=-1, help='Decide to stop early after this many epochs in which the validation loss increases (-1 means no early stopping)')
     parser.add_argument('--decay_epoch', type=int, default=-1, help='Decay the learning rate after every this many epochs (-1 means no lr decay)')
     parser.add_argument('--decay_rate', type=float, default=0.10, help='Rate at which the learning rate will be decayed')
+    parser.add_argument('--bootstrap', type=bool, default=False, help='Use trained model to generate weak labels, and continue training')
+    parser.add_argument('--continue_training', type=bool, default=False, help='Continue training from saved model')
 
     config = parser.parse_args()
 

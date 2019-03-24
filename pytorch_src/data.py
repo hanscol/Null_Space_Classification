@@ -62,6 +62,17 @@ class Train_Dataset(Dataset):
         if config.dataset == 'MNIST':
             self.len = max(self.len, self.null_split)
 
+    def bootstrap(self, model, device):
+        model.eval()
+        with torch.no_grad():
+            for c in self.null_class_to_files:
+                for fname in self.null_class_to_files[c]:
+                    img = self.preprocess(fname).unsqueeze(0)
+                    img = img.to(device)
+                    output = model(img)
+                    label = torch.argmax(output)
+                    self.class_to_files[label.item()].append(fname)
+
     def __len__(self):
         return self.len
 
@@ -75,7 +86,7 @@ class Train_Dataset(Dataset):
             img = self.tensor(img)
             img = img.type(torch.float32)
 
-        if self.config.dataset == 'CIFAR-10':
+        if self.config.dataset == 'CIFAR10':
             img = img / 255.0
             img = transform.resize(img, [224, 224, 3], mode='constant', anti_aliasing=True)
 
@@ -143,7 +154,7 @@ class Test_Dataset(Dataset):
             img = np.expand_dims(img, axis=2)
             img = self.tensor(img)
 
-        if self.config.dataset == 'CIFAR-10' or self.config.dataset == 'HAM10000':
+        if self.config.dataset == 'CIFAR10' or self.config.dataset == 'HAM10000':
             img = transform.resize(img, [224, 224, 3], mode='constant', anti_aliasing=True)
             img = self.tensor(img)
             img = self.norm(img.float())
