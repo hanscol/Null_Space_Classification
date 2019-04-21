@@ -50,6 +50,8 @@ class Train_Dataset(Dataset):
                 self.null_class_to_files[i] = split_keys
                 self.class_to_files[i] = keys[class_split:]
 
+        self.null_len = 0
+        self.stand_len = 0
         self.len = 0
         if config.dataset == 'HAM10000':
             for i in range(len(self.class_to_files)):
@@ -57,10 +59,13 @@ class Train_Dataset(Dataset):
             self.len *= i
         else:
             for i in range(len(self.class_to_files)):
-                self.len += len(self.class_to_files[i])
+                self.stand_len += len(self.class_to_files[i])
+            for i in range(len(self.null_class_to_files)):
+                self.null_len += len(self.null_class_to_files[i])
 
-        if config.dataset == 'MNIST':
-            self.len = max(self.len, self.null_split)
+            self.len = self.stand_len
+        # if config.dataset == 'MNIST':
+        #self.len = max(self.stand_len, self.null_len)
 
     def bootstrap(self, model, device):
         model.eval()
@@ -80,7 +85,7 @@ class Train_Dataset(Dataset):
         img = io.imread(fname)
         if self.config.dataset == 'MNIST':
             img = img / 255.0
-            transform.resize(img, [28, 28], mode='constant', anti_aliasing=True)
+            img = transform.resize(img, [28, 28], mode='constant', anti_aliasing=True)
 
             img = np.expand_dims(img, axis=2)
             img = self.tensor(img)
@@ -108,16 +113,17 @@ class Train_Dataset(Dataset):
 
         return img
 
-    def __getitem__(self, idx):
+    def __getitem__(self, i):
         label = random.randint(0, len(self.class_to_files)-1)
         idx = random.randint(0, len(self.class_to_files[label])-1)
         fname = self.class_to_files[label][idx]
 
+        self.idx = i
         img = self.preprocess(fname)
 
         if self.config.null_space_tuning:
             null_label = random.randint(0, len(self.class_to_files)-1)
-            null_keys = self.class_to_files[null_label].copy()
+            null_keys = self.null_class_to_files[null_label].copy()
             idx = random.randint(0, len(null_keys) -1)
             null_image1 = self.preprocess(null_keys[idx])
             del null_keys[idx]
@@ -150,7 +156,7 @@ class Test_Dataset(Dataset):
         img = img / 255.0
 
         if self.config.dataset == 'MNIST':
-            transform.resize(img, [28, 28], mode='constant', anti_aliasing=True)
+            img = transform.resize(img, [28, 28], mode='constant', anti_aliasing=True)
             img = np.expand_dims(img, axis=2)
             img = self.tensor(img)
 

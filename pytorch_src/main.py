@@ -51,6 +51,10 @@ def test_model(config):
             line = '{} {} {}\n'.format(i[0], str(i[1]), str(i[2]))
             f.write(line)
 
+    acc_file = '{}/results/test_accuracy_split_{}'.format(config.out_dir, config.null_split)
+    with open(acc_file, 'w') as f:
+        f.write(str(accuracy))
+
     return accuracy
 
 def train_model(config):
@@ -76,10 +80,17 @@ def train_model(config):
         del keys[idx]
 
     train_dataset = Train_Dataset(data, config)
-    test_dataset = Test_Dataset(val_data, config)
+    #val_dataset = Test_Dataset(val_data, config)
+    test_data = {}
+    with open('../MNIST_Null_Space_Tuning/k_fold_files/test_fold_0.txt', 'r') as f:
+        for l in f.readlines():
+            l = l.split(' ')
+            test_data[l[0]] = int(l[1])
+    test_dataset = Test_Dataset(test_data, config)
 
 
-    train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, **kwargs)
+    train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=False, **kwargs)
+    #val_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=False, **kwargs)
     test_loader = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False, **kwargs)
 
 
@@ -126,6 +137,7 @@ def train_model(config):
     if config.bootstrap:
         bootstraps = 1
 
+    # alpha_increasing = True
     for bootstrap in range(bootstraps+1):
         for epoch in range(1, config.total_epochs+1):
             print('\nEpoch %d: ' % epoch)
@@ -138,7 +150,17 @@ def train_model(config):
                 file.write(str(accuracy))
                 file.write('\n')
 
+            #loss, accuracy, confusion, correct_data, incorrect_data = test(model, device, val_loader)
             loss, accuracy, confusion, correct_data, incorrect_data = test(model, device, test_loader)
+
+            class_accuracies = '\t\tAccuracy by class: '
+            for i in range(len(confusion)):
+                correct = confusion[i,i]
+                total = sum(confusion[:,i])
+                class_accuracies += '{0}--{1:.2f}%   '.format(i, (correct/total)*100)
+
+            print(class_accuracies)
+
 
             with open(validate_loss_file, "a") as file:
                 file.write(str(loss))
@@ -166,15 +188,46 @@ def train_model(config):
                     config.lr = config.lr * config.decay_rate
                     for param_group in optimizer.param_groups:
                         param_group['lr'] = config.lr
-        if config.bootstrap:
+
+        if config.bootstrap and bootstrap != bootstraps:
+            parts = config.out_dir.split('/')
+            parts[-1] = parts[-1] + '_bootstrap'
+            config.out_dir = '/'.join(parts)
+
+            if not os.path.isdir(config.out_dir):
+                os.mkdir(config.out_dir)
+            if not os.path.isdir(os.path.join(config.out_dir, 'models')):
+                os.mkdir(os.path.join(config.out_dir, 'models'))
+            if not os.path.isdir(os.path.join(config.out_dir, 'results')):
+                os.mkdir(os.path.join(config.out_dir, 'results'))
+            if not os.path.isdir(os.path.join(config.out_dir, 'correct_lists')):
+                os.mkdir(os.path.join(config.out_dir, 'correct_lists'))
+
+            train_loss_file = '{}/results/train_loss_split_{}.txt'.format(config.out_dir, config.null_split)
+            f = open(train_loss_file, 'w')
+            f.close()
+            validate_loss_file = '{}/results/validate_loss_split_{}.txt'.format(config.out_dir, config.null_split)
+            f = open(validate_loss_file, 'w')
+            f.close()
+            train_accuracy_file = '{}/results/train_accuracy_split_{}.txt'.format(config.out_dir, config.null_split)
+            f = open(train_accuracy_file, 'w')
+            f.close()
+            validate_accuracy_file = '{}/results/validate_accuracy_split_{}.txt'.format(config.out_dir, config.null_split)
+            f = open(validate_accuracy_file, 'w')
+            f.close()
+
+            model_file = '{}/models/saved_model_split_{}'.format(config.out_dir, config.null_split)
             train_dataset.bootstrap(model, device)
             train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, **kwargs)
+
 
 def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--dataset', type=str, default='MNIST', help='Three datasets may be chosen from (MNIST, CIFAR-10, HAM1000)')
-    parser.add_argument('--null_space_tuning', type=bool, default=False, help='Determines if a standard network or a null space tuning network will be used')
+    parser.add_argument('--null_space_tuning', action='store_true', help='Determines if a standard network or a null space tuning network will be used')
+    parser.add_argument('--alpha', type=float, default=
+    1, help='Determines the impact of null space tuning')
     parser.add_argument('--null_split', type=float, default=0.10, help='Determines the amount of the training data will have the labels withheld')
     parser.add_argument('--val_split', type=float, default=0.05, help='Determines the amount of the training data will be used for validation during training (after null_split)')
     parser.add_argument('--file', type=str, default='train.txt', help='This file should contain the path to an image as well and an integer specifying its class (space separated) on each line')
@@ -186,8 +239,8 @@ def main():
     parser.add_argument('--early_stop', type=int, default=-1, help='Decide to stop early after this many epochs in which the validation loss increases (-1 means no early stopping)')
     parser.add_argument('--decay_epoch', type=int, default=-1, help='Decay the learning rate after every this many epochs (-1 means no lr decay)')
     parser.add_argument('--decay_rate', type=float, default=0.10, help='Rate at which the learning rate will be decayed')
-    parser.add_argument('--bootstrap', type=bool, default=False, help='Use trained model to generate weak labels, and continue training')
-    parser.add_argument('--continue_training', type=bool, default=False, help='Continue training from saved model')
+    parser.add_argument('--bootstrap', action='store_true', help='Use trained model to generate weak labels, and continue training')
+    parser.add_argument('--continue_training', action='store_true', help='Continue training from saved model')
 
     config = parser.parse_args()
 

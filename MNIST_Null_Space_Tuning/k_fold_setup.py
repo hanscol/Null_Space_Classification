@@ -1,7 +1,7 @@
 import os
 from random import shuffle
 
-orig_dir = '/fs4/masi/hansencb/Classification_datasets/MNIST'
+orig_dir = '/home/hansencb/Classifcation_Datasets/MNIST'
 out_dir = 'k_fold_files/'
 
 train_files = []

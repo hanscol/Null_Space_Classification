@@ -1,7 +1,7 @@
 import os
 from random import shuffle
 
-orig_dir = '/fs4/masi/hansencb/Classification_datasets/CIFAR-10'
+orig_dir = '/home/hansencb/Classifcation_Datasets/CIFAR-10'
 out_dir = 'k_fold_files/'
 
 train_files = []
