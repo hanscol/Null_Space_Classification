@@ -2,9 +2,9 @@ from __future__ import print_function, division
 import torch
 from torch.utils.data import DataLoader
 from torchvision import models
-from data import *
-from utils import *
-from model import *
+from pytorch_src.data import *
+from pytorch_src.utils import *
+from pytorch_src.model import *
 import random
 import argparse
 import os
@@ -36,13 +36,13 @@ def test_model(config):
         ft = model.classifier.in_features
         model.classifier = torch.nn.Linear(ft, 7)
 
-    model_file = '{}/models/saved_model_split_{}'.format(config.out_dir, config.null_split)
+    model_file = '{}/models/saved_model_split_{}'.format(config.out_dir, config.unlabelled_split)
     model.load_state_dict(torch.load(model_file))
     model = model.to(device)
 
     loss, accuracy, conf_matrix, correct, incorrect = test(model, device, test_loader)
 
-    correct_file = '{}/correct_lists/list_correct_model_split_{}'.format(config.out_dir, config.null_split)
+    correct_file = '{}/correct_lists/list_correct_model_split_{}'.format(config.out_dir, config.unlabelled_split)
     with open(correct_file, 'w') as f:
         for i in correct:
             line = '{} {} {}\n'.format(i[0], str(i[1]), str(i[2]))
@@ -51,7 +51,11 @@ def test_model(config):
             line = '{} {} {}\n'.format(i[0], str(i[1]), str(i[2]))
             f.write(line)
 
+<<<<<<< HEAD
+    acc_file = '{}/results/test_accuracy_split_{}'.format(config.out_dir, config.unlabelled_split)
+=======
     acc_file = '{}/results/test_accuracy_split_{}'.format(config.out_dir, config.null_split)
+>>>>>>> 735066cd8f3de8328dde38f34c42daf21c6dcf86
     with open(acc_file, 'w') as f:
         f.write(str(accuracy))
 
@@ -69,9 +73,8 @@ def train_model(config):
             l = l.split(' ')
             data[l[0]] = int(l[1])
 
-
     keys = list(data.keys())
-    val_split = int((len(keys)*(1-config.null_split))*config.val_split)
+    val_split = int((len(keys)*(1-config.unlabelled_split))*config.val_split)
     val_data = {}
     for i in range(val_split):
         idx = random.randint(0,len(keys)-1)
@@ -80,6 +83,9 @@ def train_model(config):
         del keys[idx]
 
     train_dataset = Train_Dataset(data, config)
+<<<<<<< HEAD
+    val_dataset = Test_Dataset(val_data, config)
+=======
     #val_dataset = Test_Dataset(val_data, config)
     test_data = {}
     with open('../MNIST_Null_Space_Tuning/k_fold_files/test_fold_0.txt', 'r') as f:
@@ -92,7 +98,10 @@ def train_model(config):
     train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=False, **kwargs)
     #val_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=False, **kwargs)
     test_loader = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False, **kwargs)
+>>>>>>> 735066cd8f3de8328dde38f34c42daf21c6dcf86
 
+    train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=False, **kwargs)
+    val_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=False, **kwargs)
 
     if config.dataset == 'MNIST':
         model = CNN(1, 10)
@@ -107,23 +116,26 @@ def train_model(config):
 
     model = model.to(device)
 
-
     optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
 
-    train_loss_file = '{}/results/train_loss_split_{}.txt'.format(config.out_dir, config.null_split)
+    train_loss_file = '{}/results/train_loss_split_{}.txt'.format(config.out_dir, config.unlabelled_split)
     f = open(train_loss_file, 'w')
     f.close()
-    validate_loss_file = '{}/results/validate_loss_split_{}.txt'.format(config.out_dir, config.null_split)
+    validate_loss_file = '{}/results/validate_loss_split_{}.txt'.format(config.out_dir, config.unlabelled_split)
     f = open(validate_loss_file, 'w')
     f.close()
-    train_accuracy_file = '{}/results/train_accuracy_split_{}.txt'.format(config.out_dir, config.null_split)
+    train_accuracy_file = '{}/results/train_accuracy_split_{}.txt'.format(config.out_dir, config.unlabelled_split)
     f = open(train_accuracy_file, 'w')
     f.close()
-    validate_accuracy_file = '{}/results/validate_accuracy_split_{}.txt'.format(config.out_dir, config.null_split)
+    validate_accuracy_file = '{}/results/validate_accuracy_split_{}.txt'.format(config.out_dir, config.unlabelled_split)
     f = open(validate_accuracy_file, 'w')
     f.close()
 
+<<<<<<< HEAD
+    model_file = '{}/models/saved_model_split_{}'.format(config.out_dir, config.unlabelled_split)
+=======
     model_file = '{}/models/saved_model_split_{}'.format(config.out_dir, config.null_split)
+>>>>>>> 735066cd8f3de8328dde38f34c42daf21c6dcf86
 
     if config.continue_training:
         model.load_state_dict(torch.load(model_file))
@@ -131,6 +143,14 @@ def train_model(config):
 
     seq_increase = 0
     min_loss = 10000
+<<<<<<< HEAD
+
+    bootstraps = 0
+    if config.bootstrap:
+        bootstraps = 10
+    boot_init = True
+
+=======
     last_loss = 10000
 
     bootstraps = 0
@@ -138,6 +158,7 @@ def train_model(config):
         bootstraps = 1
 
     # alpha_increasing = True
+>>>>>>> 735066cd8f3de8328dde38f34c42daf21c6dcf86
     for bootstrap in range(bootstraps+1):
         for epoch in range(1, config.total_epochs+1):
             print('\nEpoch %d: ' % epoch)
@@ -150,8 +171,12 @@ def train_model(config):
                 file.write(str(accuracy))
                 file.write('\n')
 
+<<<<<<< HEAD
+            loss, accuracy, confusion, correct_data, incorrect_data = test(model, device, val_loader)
+=======
             #loss, accuracy, confusion, correct_data, incorrect_data = test(model, device, val_loader)
             loss, accuracy, confusion, correct_data, incorrect_data = test(model, device, test_loader)
+>>>>>>> 735066cd8f3de8328dde38f34c42daf21c6dcf86
 
             class_accuracies = '\t\tAccuracy by class: '
             for i in range(len(confusion)):
@@ -174,14 +199,22 @@ def train_model(config):
                 with open(model_file, 'wb') as f:
                     torch.save(model.state_dict(), f)
 
+<<<<<<< HEAD
+            elif config.early_stop != -1:
+                if loss > min_loss:
+=======
             if config.early_stop != -1:
                 if loss > last_loss:
+>>>>>>> 735066cd8f3de8328dde38f34c42daf21c6dcf86
                     seq_increase += 1
                     if seq_increase == config.early_stop:
                         break
                 else:
                     seq_increase = 0
+<<<<<<< HEAD
+=======
                 last_loss = loss
+>>>>>>> 735066cd8f3de8328dde38f34c42daf21c6dcf86
 
             if config.decay_epoch != -1:
                 if epoch % config.decay_epoch == 0:
@@ -190,6 +223,38 @@ def train_model(config):
                         param_group['lr'] = config.lr
 
         if config.bootstrap and bootstrap != bootstraps:
+<<<<<<< HEAD
+            if boot_init:
+                parts = config.out_dir.split('/')
+                parts[-1] = parts[-1] + '_bootstrap'
+                config.out_dir = '/'.join(parts)
+
+                if not os.path.isdir(config.out_dir):
+                    os.mkdir(config.out_dir)
+                if not os.path.isdir(os.path.join(config.out_dir, 'models')):
+                    os.mkdir(os.path.join(config.out_dir, 'models'))
+                if not os.path.isdir(os.path.join(config.out_dir, 'results')):
+                    os.mkdir(os.path.join(config.out_dir, 'results'))
+                if not os.path.isdir(os.path.join(config.out_dir, 'correct_lists')):
+                    os.mkdir(os.path.join(config.out_dir, 'correct_lists'))
+
+                train_loss_file = '{}/results/train_loss_split_{}.txt'.format(config.out_dir, config.unlabelled_split)
+                f = open(train_loss_file, 'w')
+                f.close()
+                validate_loss_file = '{}/results/validate_loss_split_{}.txt'.format(config.out_dir, config.unlabelled_split)
+                f = open(validate_loss_file, 'w')
+                f.close()
+                train_accuracy_file = '{}/results/train_accuracy_split_{}.txt'.format(config.out_dir, config.unlabelled_split)
+                f = open(train_accuracy_file, 'w')
+                f.close()
+                validate_accuracy_file = '{}/results/validate_accuracy_split_{}.txt'.format(config.out_dir, config.unlabelled_split)
+                f = open(validate_accuracy_file, 'w')
+                f.close()
+
+                model_file = '{}/models/saved_model_split_{}'.format(config.out_dir, config.unlabelled_split)
+                boot_init = False
+                config.total_epochs = int(config.total_epochs/2)
+=======
             parts = config.out_dir.split('/')
             parts[-1] = parts[-1] + '_bootstrap'
             config.out_dir = '/'.join(parts)
@@ -217,6 +282,7 @@ def train_model(config):
             f.close()
 
             model_file = '{}/models/saved_model_split_{}'.format(config.out_dir, config.null_split)
+>>>>>>> 735066cd8f3de8328dde38f34c42daf21c6dcf86
             train_dataset.bootstrap(model, device)
             train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, **kwargs)
 
@@ -225,11 +291,22 @@ def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--dataset', type=str, default='MNIST', help='Three datasets may be chosen from (MNIST, CIFAR-10, HAM1000)')
+<<<<<<< HEAD
+    parser.add_argument('--null_space_tuning', action='store_true', help='Turn on null space training')
+    parser.add_argument('--vat', action='store_true', help='Turn on virtual adversarial trianing.')
+    parser.add_argument('--xi', type=float, default=10.0, metavar='XI', help='hyperparameter of VAT (default: 10.0)')
+    parser.add_argument('--eps', type=float, default=1.0, metavar='EPS',help='hyperparameter of VAT (default: 1.0)')
+    parser.add_argument('--ip', type=int, default=1, metavar='IP', help='hyperparameter of VAT (default: 1)')
+    parser.add_argument('--alpha', type=float, default=1, help='Determines the impact of null space tuning or VAT')
+    parser.add_argument('--unlabelled_split', type=float, default=0.10, help='Determines the amount of the training data will have the labels withheld')
+    parser.add_argument('--val_split', type=float, default=0.05, help='Determines the amount of the training data will be used for validation during training (after unlabelled_split)')
+=======
     parser.add_argument('--null_space_tuning', action='store_true', help='Determines if a standard network or a null space tuning network will be used')
     parser.add_argument('--alpha', type=float, default=
     1, help='Determines the impact of null space tuning')
     parser.add_argument('--null_split', type=float, default=0.10, help='Determines the amount of the training data will have the labels withheld')
     parser.add_argument('--val_split', type=float, default=0.05, help='Determines the amount of the training data will be used for validation during training (after null_split)')
+>>>>>>> 735066cd8f3de8328dde38f34c42daf21c6dcf86
     parser.add_argument('--file', type=str, default='train.txt', help='This file should contain the path to an image as well and an integer specifying its class (space separated) on each line')
     parser.add_argument('--out_dir', type=str, default='out/', help='Path to output directory')
     parser.add_argument('--mode', type=str, default='train', help='Determines whether to backpropagate or not')
@@ -243,6 +320,8 @@ def main():
     parser.add_argument('--continue_training', action='store_true', help='Continue training from saved model')
 
     config = parser.parse_args()
+
+    print(config)
 
     if not os.path.isdir(config.out_dir):
         os.mkdir(config.out_dir)

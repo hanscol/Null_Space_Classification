@@ -1,6 +1,7 @@
 from __future__ import print_function, division
 import torch
 import numpy as np
+from pytorch_src.vat import VATLoss
 
 
 def train(model, device, loader, optimizer, config):
@@ -15,25 +16,37 @@ def train(model, device, loader, optimizer, config):
         data = sample['image']
         target = sample['target']
 
+        if config.vat:
+            vat_loss = VATLoss(xi=config.xi, eps=config.eps, ip=config.ip)
+            ul_data = sample['ul_image']
+            ul_data = ul_data.to(device)
+            lds = vat_loss(model, ul_data)
+
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output = model(data)
         loss_fun = torch.nn.CrossEntropyLoss()
 
         if config.null_space_tuning:
-            null_data1 = sample['null_img1']
-            null_data2 = sample['null_img2']
+            ul_data1 = sample['ul_img1']
+            ul_data2 = sample['ul_img2']
 
-            null_data1, null_data2 = null_data1.to(device), null_data2.to(device)
+            ul_data1, ul_data2 = ul_data1.to(device), ul_data2.to(device)
 
-            null_out1 = model(null_data1)
-            null_out2 = model(null_data2)
+            ul_out1 = model(ul_data1)
+            ul_out2 = model(ul_data2)
 
             null_loss_fun = torch.nn.MSELoss()
+<<<<<<< HEAD
+            loss = loss_fun(output, target) + config.alpha*null_loss_fun(ul_out1, ul_out2)
+        elif config.vat:
+            loss = loss_fun(output, target) + config.alpha*lds
+=======
             # if (batch_idx + 1) * loader.batch_size < loader.dataset.stand_len:
             loss = loss_fun(output, target) + config.alpha*null_loss_fun(null_out1, null_out2)
             # else:
             #     loss = (config.alpha/10)*null_loss_fun(null_out1, null_out2)
+>>>>>>> 735066cd8f3de8328dde38f34c42daf21c6dcf86
         else:
             loss = loss_fun(output, target)
 
@@ -50,7 +63,7 @@ def train(model, device, loader, optimizer, config):
 
     print('\tTraining set: Average loss: {:.4f}, Accuracy: {:.0f}%'.format(avg_loss, accuracy))
 
-    return total_loss, accuracy
+    return avg_loss, accuracy
 
 
 def test(model, device, loader):
